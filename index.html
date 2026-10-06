@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brutkasten — Character Builder</title>
+<style>
+:root{--bg:#0d1117;--panel:#151b23;--panel2:#1c2430;--line:#303b4a;--text:#edf2f7;--muted:#93a1b2;--accent:#7ee787;--accent2:#58a6ff;--danger:#ff7b72}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{height:100%;display:grid;grid-template-rows:64px 1fr;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);background:#10161e}
+.brand{display:flex;gap:11px;align-items:center;font-weight:800;letter-spacing:.3px}.mark{width:34px;height:34px;border:2px solid var(--accent);border-radius:10px;display:grid;place-items:center;color:var(--accent)}
+.actions{display:flex;gap:8px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 12px;border-radius:9px}.btn:hover{border-color:#536273}.btn.primary{background:var(--accent);border-color:var(--accent);color:#08110a;font-weight:800}
+.workspace{display:grid;grid-template-columns:280px minmax(420px,1fr) 310px;min-height:0}
+.panel{background:var(--panel);border-right:1px solid var(--line);min-height:0;overflow:auto}.panel.right{border-right:0;border-left:1px solid var(--line)}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0;padding:17px 16px 10px}
+.section{padding:0 12px 14px}.card{border:1px solid var(--line);background:#111720;border-radius:11px;padding:11px;margin-bottom:9px}
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.add{padding:9px 7px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px}.add:hover{border-color:var(--accent);color:var(--accent)}
+.tree{list-style:none;margin:0;padding:0}.tree li{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 9px;border-radius:7px;color:#cbd5e1;font-size:13px}.tree li.active{background:#243242;color:#fff}.tree .left{display:flex;align-items:center;gap:8px}.dot{width:7px;height:7px;border-radius:50%;background:var(--accent2)}.remove{border:0;background:transparent;color:var(--muted);font-size:16px}.remove:hover{color:var(--danger)}
+.viewport{position:relative;min-width:0;overflow:hidden;background:radial-gradient(circle at 50% 35%,#202b38 0,#10161e 46%,#0b1016 100%)}
+.viewport:before{content:"";position:absolute;inset:0;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+.viewbar{position:absolute;top:12px;left:14px;right:14px;z-index:3;display:flex;justify-content:space-between;align-items:center}.badge{padding:6px 9px;border:1px solid var(--line);background:#0d131bdd;border-radius:7px;color:var(--muted);font-size:12px}
+.stage{position:absolute;inset:0;display:grid;place-items:center}.character{position:relative;width:360px;height:620px;transform-origin:50% 55%;transition:transform .12s ease}
+.ground{position:absolute;bottom:34px;left:50%;width:210px;height:28px;transform:translateX(-50%);border-radius:50%;background:#0008;filter:blur(7px)}
+.part{position:absolute;background:#b9c3ce;border:2px solid #202a35;box-shadow:0 5px 12px #0005;transform-origin:50% 50%}
+.head{width:74px;height:82px;border-radius:45% 45% 48% 48%;left:143px;top:42px;background:#c8d0d9}
+.eye{position:absolute;width:10px;height:14px;border-radius:50%;background:#111;top:31px}.eye.a{left:19px}.eye.b{right:19px}
+.torso{width:118px;height:170px;left:121px;top:134px;border-radius:45% 45% 22% 22%;background:#9daab8}
+.waist{width:92px;height:52px;left:134px;top:287px;border-radius:30px;background:#8795a5}
+.limb{border-radius:28px;background:#aeb9c5}.arm{width:30px;height:125px;top:151px}.arm.left{left:81px;transform:rotate(9deg)}.arm.right{right:81px;transform:rotate(-9deg)}
+.hand{width:34px;height:34px;border-radius:50%;background:#c0c9d2}.hand.left{left:70px;top:267px}.hand.right{right:70px;top:267px}
+.leg{width:39px;height:145px;top:330px}.leg.left{left:129px}.leg.right{right:129px}
+.foot{width:54px;height:28px;border-radius:20px 25px 12px 12px;top:462px}.foot.left{left:112px}.foot.right{right:112px}
+.horn{width:18px;height:52px;border-radius:100% 100% 15% 15%;background:#d5b37a;top:3px}.horn.left{left:145px;transform:rotate(-18deg)}.horn.right{right:145px;transform:rotate(18deg)}
+.tail{width:145px;height:22px;border-radius:20px;background:#8795a5;right:47px;top:314px;transform:rotate(18deg)}
+.extra{position:absolute;width:27px;height:115px;border-radius:25px;background:#9eabb8;border:2px solid #202a35}
+.status{position:absolute;bottom:12px;left:14px;color:var(--muted);font-size:12px}
+.field{margin-bottom:13px}.field label{display:flex;justify-content:space-between;font-size:12px;color:#cbd5e1;margin-bottom:6px}.value{color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=text],select{width:100%;padding:9px;border:1px solid var(--line);background:#10161e;color:var(--text);border-radius:8px;outline:none}
+.check{display:flex;align-items:center;gap:8px;font-size:12px;color:#cbd5e1;margin:8px 0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}.stat{padding:9px;border:1px solid var(--line);border-radius:8px;background:#10161e}.stat b{display:block;font-size:17px}.stat span{color:var(--muted);font-size:10px}
+.empty{color:var(--muted);font-size:12px;padding:8px}
+@media(max-width:900px){.workspace{grid-template-columns:220px 1fr}.panel.right{position:absolute;right:0;top:64px;bottom:0;width:290px;z-index:5;transform:translateX(100%);transition:.2s}.panel.right.open{transform:none}.workspace{grid-template-columns:220px 1fr}.actions .mobile{display:inline-block}}
+@media(max-width:650px){.workspace{grid-template-columns:1fr}.panel.left{position:absolute;left:0;top:64px;bottom:0;width:250px;z-index:6;transform:translateX(-100%);transition:.2s}.panel.left.open{transform:none}.character{transform:scale(.78)}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><div class="mark">B</div><div>BRUTKASTEN <span style="color:var(--muted);font-weight:500">/ Character Builder</span></div></div>
+  <div class="actions"><button class="btn" id="toggleLeft">Bauteile</button><button class="btn" id="toggleRight">Eigenschaften</button><button class="btn" id="reset">Zurücksetzen</button><button class="btn primary" id="save">Charakter speichern</button></div>
+</header>
+<div class="workspace">
+<aside class="panel left" id="left">
+<h2>Körperteile hinzufügen</h2>
+<div class="section"><div class="addgrid" id="addgrid"></div></div>
+<h2>Skelett</h2>
+<div class="section card"><ul class="tree" id="tree"></ul></div>
+</aside>
+<main class="viewport">
+<div class="viewbar"><div class="badge" id="mode">Creature / Modular Skeleton</div><div class="badge" id="count">0 Teile</div></div>
+<div class="stage"><div class="character" id="character">
+  <div class="ground"></div>
+  <div class="part horn left visual-horn"></div><div class="part horn right visual-horn"></div>
+  <div class="part head visual-head"><span class="eye a"></span><span class="eye b"></span></div>
+  <div class="part torso visual-torso"></div><div class="part waist visual-waist"></div>
+  <div class="part limb arm left visual-arm"></div><div class="part limb arm right visual-arm"></div>
+  <div class="part hand left visual-hand"></div><div class="part hand right visual-hand"></div>
+  <div class="part limb leg left visual-leg"></div><div class="part limb leg right visual-leg"></div>
+  <div class="part foot left visual-foot"></div><div class="part foot right visual-foot"></div>
+  <div class="part tail visual-tail"></div>
+</div></div>
+<div class="status" id="status">Prototyp: Anatomie zuerst, Aussehen danach.</div>
+</main>
+<aside class="panel right" id="right">
+<h2>Charakter</h2><div class="section">
+<div class="card"><div class="field"><label>Name</label><input id="name" type="text" value="Neue Kreatur"></div><div class="field"><label>Typ</label><select id="type"><option>Humanoid</option><option>Creature</option><option>Monster</option><option>Animal</option><option>Robot</option><option>Custom</option></select></div></div>
+<h2 style="padding-left:0">Körper</h2>
+<div class="card">
+<div class="field"><label>Gesamthöhe <span class="value" id="heightV">100%</span></label><input id="height" type="range" min="60" max="160" value="100"></div>
+<div class="field"><label>Breite <span class="value" id="widthV">100%</span></label><input id="width" type="range" min="60" max="180" value="100"></div>
+<div class="field"><label>Proportionen <span class="value" id="propV">50%</span></label><input id="prop" type="range" min="0" max="100" value="50"></div>
+<label class="check"><input id="sym" type="checkbox" checked> Symmetrisch spiegeln</label>
+</div>
+<h2 style="padding-left:0">Ausgewähltes Teil</h2>
+<div class="card" id="selectedCard"><div class="empty">Wähle links ein Körperteil aus.</div></div>
+<h2 style="padding-left:0">Übersicht</h2>
+<div class="stats"><div class="stat"><b id="parts">0</b><span>Körperteile</span></div><div class="stat"><b id="heads">1</b><span>Köpfe</span></div><div class="stat"><b id="limbs">4</b><span>Gliedmaßen</span></div><div class="stat"><b id="bones">7</b><span>Basis-Bones</span></div></div>
+</div>
+</aside>
+</div>
+</div>
+<script>
+const types=["Kopf","Torso","Arm","Bein","Hand","Fuß","Schwanz","Flügel","Horn","Auge","Tentakel","Segment"];
+const icons={Kopf:"◉",Torso:"▣",Arm:"╱",Bein:"╱",Hand:"✋",Fuß:"⌁",Schwanz:"∿",Flügel:"◈",Horn:"⌃",Auge:"●",Tentakel:"∿",Segment:"▭"};
+let parts=[
+{id:1,type:"Kopf",name:"Kopf 1",size:100,length:100,thickness:100},
+{id:2,type:"Torso",name:"Torso 1",size:100,length:100,thickness:100},
+{id:3,type:"Arm",name:"Arm L",size:100,length:100,thickness:100},
+{id:4,type:"Arm",name:"Arm R",size:100,length:100,thickness:100},
+{id:5,type:"Bein",name:"Bein L",size:100,length:100,thickness:100},
+{id:6,type:"Bein",name:"Bein R",size:100,length:100,thickness:100}
+];
+let selected=2;
+const $=id=>document.getElementById(id);
+types.forEach(t=>{const b=document.createElement("button");b.className="add";b.textContent="+ "+t;b.onclick=()=>addPart(t);$("addgrid").appendChild(b)});
+function addPart(type){
+ const same=parts.filter(p=>p.type===type).length+1;
+ const p={id:Date.now()+Math.random(),type,name:type+" "+same,size:100,length:100,thickness:100};
+ parts.push(p);selected=p.id;render();status(type+" hinzugefügt.");
+}
+function removePart(id){parts=parts.filter(p=>p.id!==id);if(selected===id)selected=parts[parts.length-1]?.id||null;render();status("Körperteil entfernt.");}
+function render(){
+ $("tree").innerHTML="";
+ parts.forEach(p=>{
+  const li=document.createElement("li");li.className=p.id===selected?"active":"";
+  li.innerHTML='<span class="left"><span class="dot"></span>'+icons[p.type]+" "+p.name+'</span><button class="remove" title="Entfernen">×</button>';
+  li.querySelector(".left").onclick=()=>{selected=p.id;render()};
+  li.querySelector(".remove").onclick=e=>{e.stopPropagation();removePart(p.id)};
+  $("tree").appendChild(li);
+ });
+ $("count").textContent=parts.length+" Teile";$("parts").textContent=parts.length;
+ $("heads").textContent=parts.filter(p=>p.type==="Kopf").length;
+ $("limbs").textContent=parts.filter(p=>["Arm","Bein","Tentakel","Flügel"].includes(p.type)).length;
+ $("bones").textContent=parts.length+1;
+ const p=parts.find(x=>x.id===selected);renderSelected(p);renderCharacter();
+}
+function renderSelected(p){
+ const box=$("selectedCard");if(!p){box.innerHTML='<div class="empty">Kein Teil ausgewählt.</div>';return}
+ box.innerHTML='<div class="field"><label>Bezeichnung</label><input id="partName" value="'+p.name+'"></div>'+
+ '<div class="field"><label>Größe <span class="value" id="sv1">'+p.size+'%</span></label><input id="psize" type="range" min="30" max="220" value="'+p.size+'"></div>'+
+ '<div class="field"><label>Länge <span class="value" id="sv2">'+p.length+'%</span></label><input id="plen" type="range" min="30" max="250" value="'+p.length+'"></div>'+
+ '<div class="field"><label>Dicke <span class="value" id="sv3">'+p.thickness+'%</span></label><input id="pthick" type="range" min="30" max="220" value="'+p.thickness+'"></div>'+
+ '<button class="btn" id="duplicate">Duplizieren</button>';
+ $("partName").oninput=e=>{p.name=e.target.value;renderTreeOnly()};["psize","plen","pthick"].forEach((id,i)=>$(id).oninput=e=>{p[["size","length","thickness"][i]]=+e.target.value;$(["sv1","sv2","sv3"][i]).textContent=e.target.value+"%";renderCharacter()});
+ $("duplicate").onclick=()=>{const c={...p,id:Date.now()+Math.random(),name:p.name+" Kopie"};parts.push(c);selected=c.id;render()};
+}
+function renderTreeOnly(){const p=parts.find(x=>x.id===selected);if(!p)return;[...$("tree").children].forEach((li,i)=>{if(parts[i].id===p.id)li.querySelector(".left").lastChild.textContent=" "+p.name})}
+function renderCharacter(){
+ const h=+$("height").value,w=+$("width").value,prop=+$("prop").value;
+ $("heightV").textContent=h+"%";$("widthV").textContent=w+"%";$("propV").textContent=prop+"%";
+ $("character").style.transform="scale("+(h/100)+","+(w/100)+")";
+ document.querySelectorAll(".visual-head").forEach(e=>e.style.width=(58+prop*.16)+"px");
+ document.querySelectorAll(".visual-torso").forEach(e=>{e.style.width=(95+prop*.3)+"px";e.style.left=(180-(95+prop*.3)/2)+"px"});
+ const armCount=parts.filter(p=>p.type==="Arm").length, legCount=parts.filter(p=>p.type==="Bein").length;
+ document.querySelectorAll(".visual-arm").forEach((e,i)=>e.style.display=i<armCount?"block":"none");
+ document.querySelectorAll(".visual-leg").forEach((e,i)=>e.style.display=i<legCount?"block":"none");
+ document.querySelectorAll(".visual-horn").forEach((e,i)=>e.style.display=parts.filter(p=>p.type==="Horn").length>i?"block":"none");
+ document.querySelector(".visual-tail").style.display=parts.some(p=>p.type==="Schwanz")?"block":"none";
+}
+["height","width","prop"].forEach(id=>$(id).oninput=renderCharacter);
+$("name").oninput=e=>document.title="Brutkasten — "+e.target.value;
+$("type").onchange=e=>$("mode").textContent=e.target.value+" / Modular Skeleton";
+$("reset").onclick=()=>{if(confirm("Charakter wirklich zurücksetzen?")){location.reload()}};
+$("save").onclick=()=>{
+ const data={version:1,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},parts};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.");
+};
+function status(t){$("status").textContent=t;setTimeout(()=>{$("status").textContent="Prototyp: Anatomie zuerst, Aussehen danach."},2500)}
+$("toggleLeft").onclick=()=>$("left").classList.toggle("open");$("toggleRight").onclick=()=>$("right").classList.toggle("open");
+render();
+</script>
+</body>
+</html>
