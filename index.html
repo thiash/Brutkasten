@@ -58,7 +58,8 @@ const key=new THREE.DirectionalLight(0xffffff,2.5);key.position.set(4,8,6);scene
 const floor=new THREE.Mesh(new THREE.CircleGeometry(3.5,64),new THREE.MeshStandardMaterial({color:0x111820,roughness:1}));
 floor.rotation.x=-Math.PI/2;floor.position.y=0;scene.add(floor);
 const grid=new THREE.GridHelper(7,14,0x344252,0x202a34);grid.position.y=.01;scene.add(grid);
-const model=new THREE.Group();scene.add(model);\nconst skeleton=new THREE.Group();scene.add(skeleton);
+const model=new THREE.Group();scene.add(model);
+const skeleton=new THREE.Group();scene.add(skeleton);
 
 function makeMesh(p){
  const s=p.size/100,l=p.length/100,t=p.thickness/100;
@@ -141,7 +142,9 @@ function mirrorParts(){
    parts.push(copy);
  });
 }
-function depthOf(p){let d=0,cur=p;const seen=new Set();while(cur.parentId&&!seen.has(cur.parentId)){seen.add(cur.parentId);cur=parts.find(x=>x.id===cur.parentId);if(!cur)break;d++}return d}\nfunction render(){\n $("tree").innerHTML="";
+function depthOf(p){let d=0,cur=p;const seen=new Set();while(cur.parentId&&!seen.has(cur.parentId)){seen.add(cur.parentId);cur=parts.find(x=>x.id===cur.parentId);if(!cur)break;d++}return d}
+function render(){
+ $("tree").innerHTML="";
  parts.forEach(p=>{const li=document.createElement("li");li.className=p.id===selected?"active":"";
  li.style.paddingLeft=(9+(depthOf(p)*14))+"px";li.innerHTML='<span class="left"><span class="dot"></span>'+icons[p.type]+" "+p.name+' <small style="color:var(--muted)">'+(p.joint||"")+"</small></span><button class=\"remove\">×</button>";
  li.querySelector(".left").onclick=()=>{selected=p.id;render()};
@@ -155,13 +158,19 @@ function renderSelected(p){
  '<div class="field"><label>Länge <span class="value" id="sv2">'+p.length+'%</span></label><input id="plen" type="range" min="30" max="300" value="'+p.length+'"></div>'+
  '<div class="field"><label>Dicke <span class="value" id="sv3">'+p.thickness+'%</span></label><input id="pthick" type="range" min="30" max="250" value="'+p.thickness+'"></div>'+
  '<div class="field"><label>Seitlicher Versatz <span class="value" id="sv4">'+p.offset.toFixed(2)+'</span></label><input id="poffset" type="range" min="-2" max="2" step=".05" value="'+p.offset+'"></div>'+
- '<div class="field"><label>Elternteil</label><select id="parentSel"><option value="">Wurzel</option>'+parts.filter(x=>x.id!==p.id).map(x=>'<option value="'+x.id+'"'+(x.id===p.parentId?' selected':'')+'>'+x.name+'</option>').join("")+'</select></div>'+\n '<div class="field"><label>Gelenk</label><input id="joint" value="'+(p.joint||"Joint")+'"></div>'+\n '<button class="btn" id="duplicate">Duplizieren</button>';
+ '<div class="field"><label>Elternteil</label><select id="parentSel"><option value="">Wurzel</option>'+parts.filter(x=>x.id!==p.id).map(x=>'<option value="'+x.id+'"'+(x.id===p.parentId?' selected':'')+'>'+x.name+'</option>').join("")+'</select></div>'+
+ '<div class="field"><label>Gelenk</label><input id="joint" value="'+(p.joint||"Joint")+'"></div>'+
+ '<button class="btn" id="duplicate">Duplizieren</button>';
  $("partName").oninput=e=>{p.name=e.target.value;renderTreeOnly()};
  [["psize","size","sv1"],["plen","length","sv2"],["pthick","thickness","sv3"],["poffset","offset","sv4"]].forEach(([a,b,c])=>$(a).oninput=e=>{p[b]=+e.target.value;$(c).textContent=b==="offset"?p[b].toFixed(2):e.target.value+"%";rebuildModel()});
- $("parentSel").onchange=e=>{p.parentId=e.target.value?+e.target.value:null;render()};\n $("joint").oninput=e=>{p.joint=e.target.value};\n $("duplicate").onclick=()=>{const c={...p,id:nextId++,name:p.name+" Kopie",parentId:p.parentId,joint:(p.joint||"Joint")+" Copy"};parts.push(c);selected=c.id;render()};
+ $("parentSel").onchange=e=>{p.parentId=e.target.value?+e.target.value:null;render()};
+ $("joint").oninput=e=>{p.joint=e.target.value};
+ $("duplicate").onclick=()=>{const c={...p,id:nextId++,name:p.name+" Kopie",parentId:p.parentId,joint:(p.joint||"Joint")+" Copy"};parts.push(c);selected=c.id;render()};
 }
 function renderTreeOnly(){const p=parts.find(x=>x.id===selected);[...$("tree").children].forEach((li,i)=>{if(parts[i].id===p.id)li.querySelector(".left").lastChild.textContent=" "+p.name})}
-["height","width","prop"].forEach(id=>$(id).oninput=()=>rebuildModel());\n$("showSkeleton").onchange=()=>rebuildModel();\n$("sym").onchange=()=>{if($("sym").checked)mirrorParts();render()};
+["height","width","prop"].forEach(id=>$(id).oninput=()=>rebuildModel());
+$("showSkeleton").onchange=()=>rebuildModel();
+$("sym").onchange=()=>{if($("sym").checked)mirrorParts();render()};
 $("name").oninput=e=>document.title="Brutkasten — "+e.target.value;
 $("type").onchange=e=>$("mode").textContent=e.target.value+" / 3D Skeleton";
 $("reset").onclick=()=>location.reload();
