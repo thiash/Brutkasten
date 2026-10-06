@@ -61,21 +61,37 @@ const grid=new THREE.GridHelper(7,14,0x344252,0x202a34);grid.position.y=.01;scen
 const model=new THREE.Group();scene.add(model);
 const skeleton=new THREE.Group();scene.add(skeleton);
 
+function socketPosition(p){
+ const side=p.side==="left"?-1:p.side==="right"?1:0;
+ switch(p.type){
+  case "Kopf": return new THREE.Vector3(p.offset,1.92,0);
+  case "Arm": return new THREE.Vector3(side*1.15*p.size/100,.72,0);
+  case "Bein": return new THREE.Vector3(side*.55*p.size/100,-1.70,0);
+  case "Hand": return new THREE.Vector3(p.offset,-1.05,0);
+  case "Fuß": return new THREE.Vector3(p.offset,-.98,.18);
+  case "Flügel": return new THREE.Vector3(side*1.45*p.size/100,.45,0);
+  case "Horn": return new THREE.Vector3(side*.32*p.size/100,.62,0);
+  case "Auge": return new THREE.Vector3(p.offset,.08,.58);
+  case "Schwanz": return new THREE.Vector3(1.0*p.size/100,-.35,-.35);
+  case "Tentakel": return new THREE.Vector3(p.offset,-1.0,0);
+  default: return new THREE.Vector3(p.offset,0,0);
+ }
+}
 function makeMesh(p){
  const s=p.size/100,l=p.length/100,t=p.thickness/100;
  let geo, pos=new THREE.Vector3(), rot=new THREE.Euler();
  switch(p.type){
- case"Kopf": geo=new THREE.SphereGeometry(.62*s,32,24);pos.y=5.65;pos.x=p.offset;break;
- case"Torso": geo=new THREE.CapsuleGeometry(.9*s,2.15*l,10,24);pos.y=3.75;pos.x=p.offset;break;
- case"Arm": geo=new THREE.CapsuleGeometry(.22*t,1.65*l,8,16);pos.set((p.side==="left"?-1:1)*1.15*s,4.05,0);rot.z=(p.side==="left"?-.12:.12);break;
- case"Bein": geo=new THREE.CapsuleGeometry(.28*t,1.75*l,8,16);pos.set((p.side==="left"?-.55:.55)*s,1.65,0);break;
- case"Hand": geo=new THREE.SphereGeometry(.32*s,20,14);pos.set(p.offset,2.95,0);break;
- case"Fuß": geo=new THREE.CapsuleGeometry(.28*t,.75*l,8,14);pos.set(p.offset,0.45,.22);rot.x=Math.PI/2;break;
- case"Schwanz": geo=new THREE.CapsuleGeometry(.18*t,1.8*l,8,14);pos.set(1.2*s,3.0,-.35);rot.z=Math.PI/2.7;break;
- case"Flügel": geo=new THREE.BoxGeometry(1.8*s,.12*t,1.15*l);pos.set(p.side==="left"?-1.45:1.45,4.25,0);rot.z=p.side==="left"?-.25:.25;break;
- case"Horn": geo=new THREE.ConeGeometry(.18*s,.85*l,16);pos.set(p.side==="left"?-.32:.32,6.35,0);break;
- case"Auge": geo=new THREE.SphereGeometry(.14*s,16,12);pos.set(p.offset||0,5.72,.58);break;
- case"Tentakel": geo=new THREE.CapsuleGeometry(.16*t,1.8*l,8,14);pos.set(p.offset,2.5,0);rot.z=.4;break;
+ case"Kopf": geo=new THREE.SphereGeometry(.62*s,32,24);break;
+ case"Torso": geo=new THREE.CapsuleGeometry(.9*s,2.15*l,10,24);break;
+ case"Arm": geo=new THREE.CapsuleGeometry(.22*t,1.65*l,8,16);pos.y=-.82*l;rot.z=(p.side==="left"?-.12:.12);break;
+ case"Bein": geo=new THREE.CapsuleGeometry(.28*t,1.75*l,8,16);pos.y=-.88*l;break;
+ case"Hand": geo=new THREE.SphereGeometry(.32*s,20,14);pos.y=-.12;break;
+ case"Fuß": geo=new THREE.CapsuleGeometry(.28*t,.75*l,8,14);pos.set(0,-.18,.22);rot.x=Math.PI/2;break;
+ case"Schwanz": geo=new THREE.CapsuleGeometry(.18*t,1.8*l,8,14);pos.set(.9*l,0,0);rot.z=Math.PI/2.7;break;
+ case"Flügel": geo=new THREE.BoxGeometry(1.8*s,.12*t,1.15*l);pos.set((p.side==="left"?-.9:.9)*s,0,0);rot.z=p.side==="left"?-.25:.25;break;
+ case"Horn": geo=new THREE.ConeGeometry(.18*s,.85*l,16);pos.y=.42*l;break;
+ case"Auge": geo=new THREE.SphereGeometry(.14*s,16,12);break;
+ case"Tentakel": geo=new THREE.CapsuleGeometry(.16*t,1.8*l,8,14);pos.y=-.9*l;rot.z=.4;break;
  default: geo=new THREE.CapsuleGeometry(.35*t,1.2*l,8,16);pos.set(p.offset,3.5,0);
  }
  const mat=new THREE.MeshStandardMaterial({color:p.id===selected?0x7ee787:0xaeb9c5,roughness:.65,metalness:.05});
@@ -87,14 +103,18 @@ function rebuildModel(){
  const h=+$("height").value/100,w=+$("width").value/100;
  const scale=new THREE.Group();scale.scale.set(w,h,w);model.add(scale);
  const nodes=new Map();
- parts.forEach(p=>{nodes.set(p.id,new THREE.Group());});
+ parts.forEach(p=>nodes.set(p.id,new THREE.Group()));
  parts.forEach(p=>{
    const node=nodes.get(p.id);
    const parent=p.parentId?nodes.get(p.parentId):null;
    (parent||scale).add(node);
-   const mesh=makeMesh(p);
-   node.add(mesh);
+   node.position.copy(socketPosition(p));
+   const rr=p.rot||[0,0,0];
+   node.rotation.set(THREE.MathUtils.degToRad(rr[0]),THREE.MathUtils.degToRad(rr[1]),THREE.MathUtils.degToRad(rr[2]));
+   node.userData.partId=p.id;
+   node.add(makeMesh(p));
  });
+ scale.updateMatrixWorld(true);
  drawSkeleton(nodes);
  updateLabels();
 }
@@ -127,7 +147,7 @@ function addPart(type){
  let side="center",offset=0;
  if(["Arm","Bein","Flügel"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}
  if(["Auge","Tentakel"].includes(type))offset=(n-1)*.45;
- const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset};
+ const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:2,joint:"Joint",rot:[0,0,0]};
  parts.push(p);if($("sym").checked&&["Arm","Bein","Flügel"].includes(type)){const side2=side==="left"?"right":"left";parts.push({...p,id:nextId++,name:type+" "+(side2==="left"?"L":"R"),side:side2,offset:-offset});}selected=p.id;render();status(type+" hinzugefügt und sichtbar gemacht.");
 }
 function removePart(id){parts=parts.filter(p=>p.id!==id);if(selected===id)selected=parts.at(-1)?.id||null;render();status("Körperteil entfernt.")}
@@ -160,11 +180,15 @@ function renderSelected(p){
  '<div class="field"><label>Seitlicher Versatz <span class="value" id="sv4">'+p.offset.toFixed(2)+'</span></label><input id="poffset" type="range" min="-2" max="2" step=".05" value="'+p.offset+'"></div>'+
  '<div class="field"><label>Elternteil</label><select id="parentSel"><option value="">Wurzel</option>'+parts.filter(x=>x.id!==p.id).map(x=>'<option value="'+x.id+'"'+(x.id===p.parentId?' selected':'')+'>'+x.name+'</option>').join("")+'</select></div>'+
  '<div class="field"><label>Gelenk</label><input id="joint" value="'+(p.joint||"Joint")+'"></div>'+
+ '<div class="field"><label>Drehung X <span class="value" id="rvx">'+(p.rot?.[0]||0)+'°</span></label><input id="rx" type="range" min="-180" max="180" value="'+(p.rot?.[0]||0)+'"></div>'+
+ '<div class="field"><label>Drehung Y <span class="value" id="rvy">'+(p.rot?.[1]||0)+'°</span></label><input id="ry" type="range" min="-180" max="180" value="'+(p.rot?.[1]||0)+'"></div>'+
+ '<div class="field"><label>Drehung Z <span class="value" id="rvz">'+(p.rot?.[2]||0)+'°</span></label><input id="rz" type="range" min="-180" max="180" value="'+(p.rot?.[2]||0)+'"></div>'+
  '<button class="btn" id="duplicate">Duplizieren</button>';
  $("partName").oninput=e=>{p.name=e.target.value;renderTreeOnly()};
  [["psize","size","sv1"],["plen","length","sv2"],["pthick","thickness","sv3"],["poffset","offset","sv4"]].forEach(([a,b,c])=>$(a).oninput=e=>{p[b]=+e.target.value;$(c).textContent=b==="offset"?p[b].toFixed(2):e.target.value+"%";rebuildModel()});
  $("parentSel").onchange=e=>{p.parentId=e.target.value?+e.target.value:null;render()};
  $("joint").oninput=e=>{p.joint=e.target.value};
+ [["rx",0,"rvx"],["ry",1,"rvy"],["rz",2,"rvz"]].forEach(([id,i,out])=>$(id).oninput=e=>{p.rot=p.rot||[0,0,0];p.rot[i]=+e.target.value;$(out).textContent=e.target.value+"°";rebuildModel()});
  $("duplicate").onclick=()=>{const c={...p,id:nextId++,name:p.name+" Kopie",parentId:p.parentId,joint:(p.joint||"Joint")+" Copy"};parts.push(c);selected=c.id;render()};
 }
 function renderTreeOnly(){const p=parts.find(x=>x.id===selected);[...$("tree").children].forEach((li,i)=>{if(parts[i].id===p.id)li.querySelector(".left").lastChild.textContent=" "+p.name})}
@@ -174,7 +198,7 @@ $("sym").onchange=()=>{if($("sym").checked)mirrorParts();render()};
 $("name").oninput=e=>document.title="Brutkasten — "+e.target.value;
 $("type").onchange=e=>$("mode").textContent=e.target.value+" / 3D Skeleton";
 $("reset").onclick=()=>location.reload();
-$("save").onclick=()=>{const data={version:3,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
+$("save").onclick=()=>{const data={version:4,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
 function status(t){const el=document.querySelector(".hint");el.textContent=t;setTimeout(()=>el.textContent="3D-Ansicht: ziehen = drehen · Pinch/Wheel = zoomen · Zwei-Finger/Shift = verschieben",2500)}
 $("toggleLeft").onclick=()=>$("left").classList.toggle("open");$("toggleRight").onclick=()=>$("right").classList.toggle("open");
 function resize(){const w=$("canvas").clientWidth,h=$("canvas").clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}window.addEventListener("resize",resize);resize();
