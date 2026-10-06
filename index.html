@@ -29,6 +29,7 @@
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js';
+import {TransformControls} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/TransformControls.js';
 
 const $=id=>document.getElementById(id);
 const types=["Kopf","Torso","Arm","Bein","Hand","Fuß","Schwanz","Flügel","Horn","Auge","Tentakel","Segment"];
@@ -60,6 +61,11 @@ floor.rotation.x=-Math.PI/2;floor.position.y=0;scene.add(floor);
 const grid=new THREE.GridHelper(7,14,0x344252,0x202a34);grid.position.y=.01;scene.add(grid);
 const model=new THREE.Group();scene.add(model);
 const skeleton=new THREE.Group();scene.add(skeleton);
+const raycaster=new THREE.Raycaster(), pointer=new THREE.Vector2(), jointHits=new Map();
+const gizmo=new TransformControls(camera,renderer.domElement); gizmo.setMode("rotate"); gizmo.setSize(.75); gizmo.visible=false; scene.add(gizmo);
+let gizmoPartId=null;
+gizmo.addEventListener("dragging-changed",e=>{controls.enabled=!e.value});
+gizmo.addEventListener("objectChange",()=>{const p=parts.find(x=>x.id===gizmoPartId);if(!p||!gizmo.object)return;p.rot=[THREE.MathUtils.radToDeg(gizmo.object.rotation.x),THREE.MathUtils.radToDeg(gizmo.object.rotation.y),THREE.MathUtils.radToDeg(gizmo.object.rotation.z)];renderSelected(p);});
 
 function socketPosition(p){
  const side=p.side==="left"?-1:p.side==="right"?1:0;
@@ -119,14 +125,15 @@ function rebuildModel(){
  updateLabels();
 }
 function drawSkeleton(nodes){
- if(!$("showSkeleton").checked)return;
+ jointHits.clear();
+ if(!$("showSkeleton").checked){gizmo.visible=false;return;}
  const mat=new THREE.LineBasicMaterial({color:0x58a6ff,transparent:true,opacity:.65});
  const jointMat=new THREE.MeshBasicMaterial({color:0x58a6ff});
  parts.forEach(p=>{
    const node=nodes.get(p.id);
    const wp=new THREE.Vector3();node.getWorldPosition(wp);
    const joint=new THREE.Mesh(new THREE.SphereGeometry(.075,10,8),jointMat);
-   joint.position.copy(wp);skeleton.add(joint);
+   joint.position.copy(wp);joint.userData.partId=p.id;jointHits.set(joint,p.id);skeleton.add(joint);
    if(p.parentId){
      const parentNode=nodes.get(p.parentId);
      const pp=new THREE.Vector3();parentNode.getWorldPosition(pp);
@@ -202,7 +209,14 @@ $("save").onclick=()=>{const data={version:4,name:$("name").value,type:$("type")
 function status(t){const el=document.querySelector(".hint");el.textContent=t;setTimeout(()=>el.textContent="3D-Ansicht: ziehen = drehen · Pinch/Wheel = zoomen · Zwei-Finger/Shift = verschieben",2500)}
 $("toggleLeft").onclick=()=>$("left").classList.toggle("open");$("toggleRight").onclick=()=>$("right").classList.toggle("open");
 function resize(){const w=$("canvas").clientWidth,h=$("canvas").clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}window.addEventListener("resize",resize);resize();
-renderer.domElement.addEventListener("pointerdown",e=>{if(e.pointerType==="touch")controls.enablePan=false});
+function findNodeByPartId(id){let found=null;model.traverse(o=>{if(o.type==="Group"&&o.userData.partId===id)found=o});return found}
+renderer.domElement.addEventListener("pointerdown",e=>{
+ const rect=renderer.domElement.getBoundingClientRect(); pointer.x=((e.clientX-rect.left)/rect.width)*2-1; pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;
+ raycaster.setFromCamera(pointer,camera);
+ const hit=raycaster.intersectObjects([...jointHits.keys()],false)[0];
+ if(hit){const id=hit.object.userData.partId;selected=id;render();const target=findNodeByPartId(id);if(target){gizmoPartId=id;gizmo.attach(target);gizmo.visible=true;status((parts.find(p=>p.id===id)?.name||"Gelenk")+" ausgewählt — ziehen zum Drehen");}return;}
+ if(e.pointerType==="touch")controls.enablePan=false
+});
 render();
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
 </script></body></html>
