@@ -18,7 +18,7 @@
 <div class="actions"><button class="btn" id="toggleLeft">Bauteile</button><button class="btn" id="toggleRight">Eigenschaften</button><button class="btn" id="reset">Reset</button><button class="btn primary wide" id="save">Charakter speichern</button></div></header>
 <div class="workspace">
 <aside class="panel left" id="left"><h2>Körperteile hinzufügen</h2><div class="section"><div class="addgrid" id="addgrid"></div></div><h2>Skelett</h2><div class="section card"><ul class="tree" id="tree"></ul></div></aside>
-<main class="viewport"><canvas id="canvas"></canvas><div class="viewbar"><div class="badge" id="mode">Creature / 3D Skeleton</div><div class="badge" id="count">0 Teile</div></div><div class="hint">3D-Ansicht: ziehen = drehen · Pinch/Wheel = zoomen · Zwei-Finger/Shift = verschieben</div></main>
+<main class="viewport"><canvas id="canvas"></canvas><div class="viewbar"><div class="badge" id="mode">Creature / 3D Skeleton</div><div class="badge" id="count">0 Teile</div></div><div class="hint">3D-Ansicht: ziehen = drehen · Gelenkpunkt ziehen = Körperteil drehen · Pinch/Wheel = zoomen</div></main>
 <aside class="panel right" id="right"><h2>Charakter</h2><div class="section">
 <div class="card"><div class="field"><label>Name</label><input id="name" value="Neue Kreatur"></div><div class="field"><label>Typ</label><select id="type"><option>Humanoid</option><option selected>Creature</option><option>Monster</option><option>Animal</option><option>Robot</option><option>Custom</option></select></div></div>
 <h2 style="padding-left:0">Körper</h2><div class="card"><div class="field"><label>Gesamthöhe <span class="value" id="heightV">100%</span></label><input id="height" type="range" min="60" max="160" value="100"></div><div class="field"><label>Breite <span class="value" id="widthV">100%</span></label><input id="width" type="range" min="60" max="180" value="100"></div><div class="field"><label>Proportionen <span class="value" id="propV">50%</span></label><input id="prop" type="range" min="0" max="100" value="50"></div><label class="check"><input id="sym" type="checkbox" checked> Symmetrisch spiegeln</label><label class="check"><input id="showSkeleton" type="checkbox" checked> Skelett anzeigen</label></div>
@@ -60,6 +60,34 @@ floor.rotation.x=-Math.PI/2;floor.position.y=0;scene.add(floor);
 const grid=new THREE.GridHelper(7,14,0x344252,0x202a34);grid.position.y=.01;scene.add(grid);
 const model=new THREE.Group();scene.add(model);
 const skeleton=new THREE.Group();scene.add(skeleton);
+const raycaster=new THREE.Raycaster(), pointer=new THREE.Vector2();
+const jointHits=new Map();
+let dragJointId=null, dragStartX=0, dragStartY=0, dragStartRot=[0,0,0];
+function findPart(id){return parts.find(p=>p.id===id)}
+function beginJointDrag(e){
+ if(!$("showSkeleton").checked)return false;
+ const rect=renderer.domElement.getBoundingClientRect();
+ pointer.x=((e.clientX-rect.left)/rect.width)*2-1; pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;
+ raycaster.setFromCamera(pointer,camera);
+ const hit=raycaster.intersectObjects([...jointHits.keys()],false)[0];
+ if(!hit)return false;
+ dragJointId=hit.object.userData.partId; const p=findPart(dragJointId); if(!p)return false;
+ selected=p.id; dragStartX=e.clientX; dragStartY=e.clientY; dragStartRot=[...(p.rot||[0,0,0])];
+ renderer.domElement.setPointerCapture?.(e.pointerId); render(); status(p.name+" Gelenk — ziehen zum Drehen"); return true;
+}
+function moveJointDrag(e){
+ if(dragJointId===null)return;
+ const p=findPart(dragJointId); if(!p)return;
+ const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
+ p.rot=[dragStartRot[0]+dy*.7,dragStartRot[1]+dx*.7,dragStartRot[2]];
+ p.rot=p.rot.map(v=>Math.max(-180,Math.min(180,v)));
+ rebuildModel(); renderSelected(p);
+}
+function endJointDrag(e){if(dragJointId!==null)renderer.domElement.releasePointerCapture?.(e.pointerId);dragJointId=null}
+renderer.domElement.addEventListener("pointerdown",e=>{if(beginJointDrag(e))e.preventDefault()});
+renderer.domElement.addEventListener("pointermove",e=>{if(dragJointId!==null){moveJointDrag(e);e.preventDefault()}});
+renderer.domElement.addEventListener("pointerup",endJointDrag);
+renderer.domElement.addEventListener("pointercancel",endJointDrag);
 
 function socketPosition(p){
  const side=p.side==="left"?-1:p.side==="right"?1:0;
@@ -119,14 +147,15 @@ function rebuildModel(){
  updateLabels();
 }
 function drawSkeleton(nodes){
+ jointHits.clear();
  if(!$("showSkeleton").checked)return;
  const mat=new THREE.LineBasicMaterial({color:0x58a6ff,transparent:true,opacity:.65});
  const jointMat=new THREE.MeshBasicMaterial({color:0x58a6ff});
  parts.forEach(p=>{
    const node=nodes.get(p.id);
    const wp=new THREE.Vector3();node.getWorldPosition(wp);
-   const joint=new THREE.Mesh(new THREE.SphereGeometry(.075,10,8),jointMat);
-   joint.position.copy(wp);skeleton.add(joint);
+   const joint=new THREE.Mesh(new THREE.SphereGeometry(.105,12,10),jointMat);
+   joint.position.copy(wp);joint.userData.partId=p.id;jointHits.set(joint,p.id);skeleton.add(joint);
    if(p.parentId){
      const parentNode=nodes.get(p.parentId);
      const pp=new THREE.Vector3();parentNode.getWorldPosition(pp);
