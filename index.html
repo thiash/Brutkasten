@@ -162,7 +162,7 @@ function rebuildModel(){
   if(modelGroup){scene.remove(modelGroup);modelGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()})}
   modelGroup=new THREE.Group();scene.add(modelGroup);
   parts.forEach(p=>{
-    const mesh=makeMesh(p); const wp=partWorldPosition(p); mesh.position.set(wp.x,wp.y,wp.z);
+    const mesh=makeMesh(p); const wp=partWorldPosition(p); mesh.position.set(wp.x,wp.y,wp.z); if(p.parentId){const par=parts.find(x=>x.id===p.parentId); if(par){const po=partWorldPosition(par); mesh.position.add(new THREE.Vector3((p.side==="left"?-.12:p.side==="right"?.12:0),0,0));}}
     mesh.rotation.set(...(p.rot||[0,0,0]).map(v=>THREE.MathUtils.degToRad(v)));
     mesh.rotation.x+=THREE.MathUtils.degToRad(p.jointRot?.[0]||0);
     mesh.rotation.y+=THREE.MathUtils.degToRad(p.jointRot?.[1]||0);
