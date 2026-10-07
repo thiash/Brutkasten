@@ -15,14 +15,14 @@
 <body>
 <div class="app">
 <header class="header"><div class="brand"><div class="mark">B</div>BRUTKASTEN <span style="color:var(--muted);font-weight:500">/ Character Builder</span></div>
-<div class="actions"><button class="btn" id="toggleLeft">Bauteile</button><button class="btn" id="toggleRight">Eigenschaften</button><button class="btn" id="reset">Reset</button><button class="btn primary wide" id="save">Charakter speichern</button></div></header>
+<div class="actions"><button class="btn" id="toggleLeft">Bauteile</button><button class="btn" id="toggleRight">Eigenschaften</button><button class="btn" id="undo">↶</button><button class="btn" id="redo">↷</button><button class="btn" id="reset">Neu</button><button class="btn" id="random">Zufall</button><button class="btn" id="load">Laden</button><button class="btn primary wide" id="save">Speichern</button><input id="fileInput" type="file" accept=".json,application/json" hidden></div></header>
 <div class="workspace">
 <aside class="panel left" id="left"><h2>Körperteile hinzufügen</h2><div class="section"><div class="addgrid" id="addgrid"></div></div><h2>Skelett</h2><div class="section card"><ul class="tree" id="tree"></ul></div></aside>
 <main class="viewport"><canvas id="canvas"></canvas><div class="viewbar"><div class="badge" id="mode">Creature / 3D Skeleton</div><div class="badge" id="count">0 Teile</div></div><div class="hint">3D-Ansicht: ziehen = drehen · Gelenkpunkt ziehen = Körperteil drehen · Pinch/Wheel = zoomen</div></main>
 <aside class="panel right" id="right"><h2>Charakter</h2><div class="section">
 <div class="card"><div class="field"><label>Name</label><input id="name" value="Neue Kreatur"></div><div class="field"><label>Typ</label><select id="type"><option>Humanoid</option><option selected>Creature</option><option>Monster</option><option>Animal</option><option>Robot</option><option>Custom</option></select></div></div>
 <h2 style="padding-left:0">Körper</h2><div class="card"><div class="field"><label>Gesamthöhe <span class="value" id="heightV">100%</span></label><input id="height" type="range" min="60" max="160" value="100"></div><div class="field"><label>Breite <span class="value" id="widthV">100%</span></label><input id="width" type="range" min="60" max="180" value="100"></div><div class="field"><label>Proportionen <span class="value" id="propV">50%</span></label><input id="prop" type="range" min="0" max="100" value="50"></div><label class="check"><input id="sym" type="checkbox" checked> Symmetrisch spiegeln</label><label class="check"><input id="showSkeleton" type="checkbox" checked> Skelett anzeigen</label></div>
-<h2 style="padding-left:0">Ausgewähltes Teil</h2><div class="card" id="selectedCard"><div class="empty">Wähle links ein Körperteil aus.</div></div>
+<h2 style="padding-left:0">Aussehen</h2><div class="card"><div class="field"><label>Farbe</label><input id="color" type="color" value="#aeb9c5" style="width:100%;height:38px;padding:2px"></div><div class="field"><label>Rauheit <span class="value" id="roughV">65%</span></label><input id="rough" type="range" min="0" max="100" value="65"></div><div class="field"><label>Metall <span class="value" id="metalV">5%</span></label><input id="metal" type="range" min="0" max="100" value="5"></div></div><h2 style="padding-left:0">Ausgewähltes Teil</h2><div class="card" id="selectedCard"><div class="empty">Wähle links ein Körperteil aus.</div></div>
 <h2 style="padding-left:0">Übersicht</h2><div class="stats"><div class="stat"><b id="parts">0</b><span>Körperteile</span></div><div class="stat"><b id="heads">1</b><span>Köpfe</span></div><div class="stat"><b id="limbs">4</b><span>Gliedmaßen</span></div><div class="stat"><b id="bones">7</b><span>Segmente</span></div></div>
 </div></aside>
 </div></div>
@@ -43,6 +43,14 @@ let parts=[
 {id:6,type:"Bein",name:"Bein R",size:100,length:100,thickness:100,side:"right",offset:.55,parentId:2,joint:"Hip.R"}
 ];
 let selected=2;
+let history=[],future=[],restoring=false;
+const defaults={color:"#aeb9c5",rough:.65,metal:.05};
+function state(){return JSON.stringify({name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts})}
+function pushHistory(){if(restoring)return;history.push(state());if(history.length>50)history.shift();future=[]}
+function restoreState(raw){const d=JSON.parse(raw);restoring=true;$("name").value=d.name||"Neue Kreatur";$("type").value=d.type||"Creature";$("height").value=d.body?.height??100;$("width").value=d.body?.width??100;$("prop").value=d.body?.proportions??50;$("sym").checked=d.body?.symmetry??true;$("color").value=d.appearance?.color||defaults.color;$("rough").value=Math.round((d.appearance?.rough??defaults.rough)*100);$("metal").value=Math.round((d.appearance?.metal??defaults.metal)*100);parts=Array.isArray(d.parts)?d.parts:[];nextId=Math.max(0,...parts.map(p=>p.id||0))+1;selected=parts[0]?.id||null;restoring=false;render()}
+function undo(){if(!history.length)return;future.push(state());restoreState(history.pop())}
+function redo(){if(!future.length)return;history.push(state());restoreState(future.pop())}
+function randomize(){pushHistory();const hues=[0x7ee787,0x58a6ff,0xffb86c,0xff7b72,0xc9a0ff,0x9fe7d6];$("color").value="#"+hues[Math.floor(Math.random()*hues.length)].toString(16).padStart(6,"0");$("height").value=70+Math.floor(Math.random()*71);$("width").value=70+Math.floor(Math.random()*81);$("prop").value=Math.floor(Math.random()*101);parts.forEach(p=>{p.size=55+Math.floor(Math.random()*101);p.length=55+Math.floor(Math.random()*141);p.thickness=55+Math.floor(Math.random()*101);p.rot=[-35+Math.random()*70,-35+Math.random()*70,-35+Math.random()*70]});render()}
 types.forEach(t=>{const b=document.createElement("button");b.className="add";b.textContent="+ "+t;b.onclick=()=>addPart(t);$("addgrid").appendChild(b)});
 
 const renderer=new THREE.WebGLRenderer({canvas:$("canvas"),antialias:true,alpha:true});
@@ -122,7 +130,7 @@ function makeMesh(p){
  case"Tentakel": geo=new THREE.CapsuleGeometry(.16*t,1.8*l,8,14);pos.y=-.9*l;rot.z=.4;break;
  default: geo=new THREE.CapsuleGeometry(.35*t,1.2*l,8,16);pos.set(p.offset,3.5,0);
  }
- const mat=new THREE.MeshStandardMaterial({color:p.id===selected?0x7ee787:0xaeb9c5,roughness:.65,metalness:.05});
+ const base=new THREE.Color($("color")?.value||defaults.color);if(p.id===selected)base.lerp(new THREE.Color(0xffffff),.28);const mat=new THREE.MeshStandardMaterial({color:base,roughness:+$("rough").value/100,metalness:+$("metal").value/100});
  const mesh=new THREE.Mesh(geo,mat);mesh.position.copy(pos);mesh.rotation.copy(rot);mesh.userData.partId=p.id;return mesh;
 }
 function rebuildModel(){
@@ -171,7 +179,7 @@ function drawSkeleton(nodes){
  $("bones").textContent=parts.length+1;
  $("heightV").textContent=$("height").value+"%";$("widthV").textContent=$("width").value+"%";$("propV").textContent=$("prop").value+"%";
 }
-function addPart(type){
+function addPart(type){ pushHistory();
  const n=parts.filter(p=>p.type===type).length+1;
  let side="center",offset=0;
  if(["Arm","Bein","Flügel"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}
@@ -179,7 +187,7 @@ function addPart(type){
  const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:2,joint:"Joint",rot:[0,0,0]};
  parts.push(p);if($("sym").checked&&["Arm","Bein","Flügel"].includes(type)){const side2=side==="left"?"right":"left";parts.push({...p,id:nextId++,name:type+" "+(side2==="left"?"L":"R"),side:side2,offset:-offset});}selected=p.id;render();status(type+" hinzugefügt und sichtbar gemacht.");
 }
-function removePart(id){parts=parts.filter(p=>p.id!==id);if(selected===id)selected=parts.at(-1)?.id||null;render();status("Körperteil entfernt.")}
+function removePart(id){pushHistory();parts=parts.filter(p=>p.id!==id);if(selected===id)selected=parts.at(-1)?.id||null;render();status("Körperteil entfernt.")}
 function mirrorParts(){
  const snapshot=[...parts];
  snapshot.forEach(p=>{
@@ -218,7 +226,7 @@ function renderSelected(p){
  $("parentSel").onchange=e=>{p.parentId=e.target.value?+e.target.value:null;render()};
  $("joint").oninput=e=>{p.joint=e.target.value};
  [["rx",0,"rvx"],["ry",1,"rvy"],["rz",2,"rvz"]].forEach(([id,i,out])=>$(id).oninput=e=>{p.rot=p.rot||[0,0,0];p.rot[i]=+e.target.value;$(out).textContent=e.target.value+"°";rebuildModel()});
- $("duplicate").onclick=()=>{const c={...p,id:nextId++,name:p.name+" Kopie",parentId:p.parentId,joint:(p.joint||"Joint")+" Copy"};parts.push(c);selected=c.id;render()};
+ $("duplicate").onclick=()=>{pushHistory();const c={...p,id:nextId++,name:p.name+" Kopie",parentId:p.parentId,joint:(p.joint||"Joint")+" Copy"};parts.push(c);selected=c.id;render()};
 }
 function renderTreeOnly(){const p=parts.find(x=>x.id===selected);[...$("tree").children].forEach((li,i)=>{if(parts[i].id===p.id)li.querySelector(".left").lastChild.textContent=" "+p.name})}
 ["height","width","prop"].forEach(id=>$(id).oninput=()=>rebuildModel());
@@ -226,8 +234,14 @@ $("showSkeleton").onchange=()=>rebuildModel();
 $("sym").onchange=()=>{if($("sym").checked)mirrorParts();render()};
 $("name").oninput=e=>document.title="Brutkasten — "+e.target.value;
 $("type").onchange=e=>$("mode").textContent=e.target.value+" / 3D Skeleton";
-$("reset").onclick=()=>location.reload();
-$("save").onclick=()=>{const data={version:4,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
+$("reset").onclick=()=>{pushHistory();location.reload()};
+$("save").onclick=()=>{const data={version:5,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
+$("load").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=e=>{const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{pushHistory();restoreState(r.result);status("Charakter geladen.")}catch(err){status("Ungültige Charakterdatei.")}};r.readAsText(file);e.target.value=""};
+$("undo").onclick=undo;$("redo").onclick=redo;$("random").onclick=randomize;
+$("color").oninput=()=>rebuildModel();
+$("rough").oninput=e=>{$("roughV").textContent=e.target.value+"%";rebuildModel()};
+$("metal").oninput=e=>{$("metalV").textContent=e.target.value+"%";rebuildModel()};
 function status(t){const el=document.querySelector(".hint");el.textContent=t;setTimeout(()=>el.textContent="3D-Ansicht: ziehen = drehen · Pinch/Wheel = zoomen · Zwei-Finger/Shift = verschieben",2500)}
 $("toggleLeft").onclick=()=>$("left").classList.toggle("open");$("toggleRight").onclick=()=>$("right").classList.toggle("open");
 function resize(){const w=$("canvas").clientWidth,h=$("canvas").clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}window.addEventListener("resize",resize);resize();
