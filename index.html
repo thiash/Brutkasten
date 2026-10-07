@@ -48,6 +48,15 @@ let history=[],future=[],restoring=false;
 const socketMap={Kopf:["neck"],Torso:["head","shoulderL","shoulderR","hipL","hipR"],Arm:["shoulder","elbow","wrist"],Bein:["hip","knee","ankle"],Hand:["wrist"],Fuß:["ankle"],Hals:["head","torso"],Pfote:["wrist","ankle"],Klaue:["wrist","ankle"],Flügel:["shoulder"],Ohr:["head"],Horn:["head"],Auge:["head"],Schnauze:["head"],Maul:["head"],Zahn:["mouth"],Schwanz:["hip"],Tentakel:["root"],Antenne:["head"],Stachel:["root"],Kiemen:["head"],Fell:["root"],Schuppe:["root"],Segment:["root"]};
 const jointTypes=["Ball","Hinge","Fixed","Twist"];
 function attachmentOptions(p){return socketMap[p.type]||["root"]}
+function socketOffset(type,socket){
+  const m={Torso:{head:[0,1.15,0],shoulderL:[-.55,.55,0],shoulderR:[.55,.55,0],hipL:[-.35,-.65,0],hipR:[.35,-.65,0]},Arm:{shoulder:[0,.65,0],elbow:[0,0,0],wrist:[0,-.65,0]},Bein:{hip:[0,.7,0],knee:[0,0,0],ankle:[0,-.8,0]},Kopf:{neck:[0,-.55,0]},Hals:{head:[0,.35,0],torso:[0,-.35,0]}};return m[type]?.[socket]||[0,0,0]}
+function partWorldPosition(p){
+  const chain=[];let cur=p;const seen=new Set();
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);chain.unshift(cur);cur=parts.find(x=>x.id===cur.parentId)}
+  const v=new THREE.Vector3(0,0,0);
+  chain.forEach(x=>{const o=socketOffset(x.type,x.socket);v.x+=o[0];v.y+=o[1];v.z+=o[2];v.x+=(x.offset||0)*.55;});
+  return v;
+}
 const defaults={color:"#aeb9c5",rough:.65,metal:.05};
 function state(){return JSON.stringify({name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts})}
 function pushHistory(){if(restoring)return;history.push(state());if(history.length>50)history.shift();future=[]}
@@ -150,25 +159,16 @@ function makeMesh(p){
  const mesh=new THREE.Mesh(geo,mat);mesh.position.copy(pos);mesh.rotation.copy(rot);mesh.userData.partId=p.id;return mesh;
 }
 function rebuildModel(){
- while(model.children.length)model.remove(model.children[0]);
- while(skeleton.children.length)skeleton.remove(skeleton.children[0]);
- const h=+$("height").value/100,w=+$("width").value/100;
- const scale=new THREE.Group();scale.scale.set(w,h,w);model.add(scale);
- const nodes=new Map();
- parts.forEach(p=>nodes.set(p.id,new THREE.Group()));
- parts.forEach(p=>{
-   const node=nodes.get(p.id);
-   const parent=p.parentId?nodes.get(p.parentId):null;
-   (parent||scale).add(node);
-   node.position.copy(socketPosition(p));
-   const rr=p.rot||[0,0,0];
-   node.rotation.set(THREE.MathUtils.degToRad(rr[0]),THREE.MathUtils.degToRad(rr[1]),THREE.MathUtils.degToRad(rr[2]));
-   node.userData.partId=p.id;
-   node.add(makeMesh(p));
- });
- scale.updateMatrixWorld(true);
- drawSkeleton(nodes);
- updateLabels();
+  if(modelGroup){scene.remove(modelGroup);modelGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()})}
+  modelGroup=new THREE.Group();scene.add(modelGroup);
+  parts.forEach(p=>{
+    const mesh=makeMesh(p); const wp=partWorldPosition(p); mesh.position.set(wp.x,wp.y,wp.z);
+    mesh.rotation.set(...(p.rot||[0,0,0]).map(v=>THREE.MathUtils.degToRad(v)));
+    mesh.rotation.x+=THREE.MathUtils.degToRad(p.jointRot?.[0]||0);
+    mesh.rotation.y+=THREE.MathUtils.degToRad(p.jointRot?.[1]||0);
+    mesh.userData.partId=p.id; modelGroup.add(mesh);
+  });
+  if(showSkeleton) drawSkeleton();
 }
 function drawSkeleton(nodes){
  jointHits.clear();
