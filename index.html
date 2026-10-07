@@ -31,8 +31,9 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
 import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js';
 
 const $=id=>document.getElementById(id);
-const types=["Kopf","Torso","Arm","Bein","Hand","Fuß","Schwanz","Flügel","Horn","Auge","Tentakel","Segment"];
-const icons={Kopf:"◉",Torso:"▣",Arm:"╱",Bein:"╱",Hand:"✋",Fuß:"⌁",Schwanz:"∿",Flügel:"◈",Horn:"⌃",Auge:"●",Tentakel:"∿",Segment:"▭"};
+const types=["Kopf","Torso","Arm","Bein","Hand","Fuß","Schwanz","Flügel","Horn","Auge","Tentakel","Segment","Hals","Pfote","Klaue","Ohr","Schnauze","Maul","Zahn","Fell","Schuppe","Stachel","Antenne","Kiemen"];
+
+const icons={Kopf:"◉",Torso:"▣",Arm:"╱",Bein:"╱",Hand:"✋",Fuß:"⌁",Schwanz:"∿",Flügel:"◈",Horn:"⌃",Auge:"●",Tentakel:"∿",Segment:"▭",Hals:"┃",Pfote:"✣",Klaue:"⌁",Ohr:"◖",Schnauze:"◒",Maul:"◡",Zahn:"♢",Fell:"✦",Schuppe:"◇",Stachel:"⌃",Antenne:"⌁",Kiemen:"≋"};
 let nextId=7;
 let parts=[
 {id:1,type:"Kopf",name:"Kopf 1",size:100,length:100,thickness:100,side:"center",offset:0,parentId:2,joint:"Neck"},
@@ -128,6 +129,18 @@ function makeMesh(p){
  case"Horn": geo=new THREE.ConeGeometry(.18*s,.85*l,16);pos.y=.42*l;break;
  case"Auge": geo=new THREE.SphereGeometry(.14*s,16,12);break;
  case"Tentakel": geo=new THREE.CapsuleGeometry(.16*t,1.8*l,8,14);pos.y=-.9*l;rot.z=.4;break;
+ case"Hals": geo=new THREE.CapsuleGeometry(.32*t,.65*l,8,14);pos.y=-.32*l;break;
+ case"Pfote": geo=new THREE.SphereGeometry(.38*s,18,14);pos.y=-.12;break;
+ case"Klaue": geo=new THREE.ConeGeometry(.22*s,.65*l,12);pos.y=-.25*l;break;
+ case"Ohr": geo=new THREE.SphereGeometry(.3*s,18,12);pos.x=.18*s;rot.z=.3;break;
+ case"Schnauze": geo=new THREE.CapsuleGeometry(.35*t,.65*l,8,12);pos.z=.45;rot.x=Math.PI/2;break;
+ case"Maul": geo=new THREE.CapsuleGeometry(.18*t,.55*l,8,12);pos.z=.5;rot.x=Math.PI/2;break;
+ case"Zahn": geo=new THREE.ConeGeometry(.09*s,.35*l,10);pos.y=-.16*l;break;
+ case"Fell": geo=new THREE.SphereGeometry(.5*s,16,12);break;
+ case"Schuppe": geo=new THREE.CircleGeometry(.32*s,6);pos.z=.45;break;
+ case"Stachel": geo=new THREE.ConeGeometry(.16*s,.8*l,10);pos.y=.4*l;break;
+ case"Antenne": geo=new THREE.CapsuleGeometry(.07*t,.9*l,6,10);pos.y=.45*l;break;
+ case"Kiemen": geo=new THREE.BoxGeometry(.18*s,.6*l,.08*t);pos.z=.3;break;
  default: geo=new THREE.CapsuleGeometry(.35*t,1.2*l,8,16);pos.set(p.offset,3.5,0);
  }
  const base=new THREE.Color($("color")?.value||defaults.color);if(p.id===selected)base.lerp(new THREE.Color(0xffffff),.28);const mat=new THREE.MeshStandardMaterial({color:base,roughness:+$("rough").value/100,metalness:+$("metal").value/100});
@@ -233,7 +246,18 @@ function renderTreeOnly(){const p=parts.find(x=>x.id===selected);[...$("tree").c
 $("showSkeleton").onchange=()=>rebuildModel();
 $("sym").onchange=()=>{if($("sym").checked)mirrorParts();render()};
 $("name").oninput=e=>document.title="Brutkasten — "+e.target.value;
-$("type").onchange=e=>$("mode").textContent=e.target.value+" / 3D Skeleton";
+$("type").onchange=e=>{$("mode").textContent=e.target.value+" / 3D Skeleton";applyPreset(e.target.value)};
+const presets={
+  Humanoid:{height:100,width:100,parts:["Kopf","Torso","Arm","Arm","Bein","Bein"]},
+  Creature:{height:100,width:110,parts:["Kopf","Torso","Arm","Arm","Bein","Bein","Schwanz"]},
+  Monster:{height:105,width:125,parts:["Kopf","Torso","Arm","Arm","Bein","Bein","Horn","Horn","Maul","Zahn","Schwanz","Stachel"]},
+  Animal:{height:90,width:115,parts:["Kopf","Torso","Bein","Bein","Bein","Bein","Ohr","Ohr","Schnauze","Schwanz"]},
+  Robot:{height:105,width:90,parts:["Kopf","Torso","Arm","Arm","Bein","Bein","Antenne","Segment"]},
+  Custom:{height:100,width:100,parts:["Kopf","Torso"]}
+};
+function applyPreset(kind){const p=presets[kind]||presets.Custom;pushHistory();$("height").value=p.height;$("width").value=p.width;parts=[];nextId=1;selected=null;p.parts.forEach(t=>{addPartRaw(t)});selected=parts.find(x=>x.type==="Torso")?.id||parts[0]?.id||null;render();status(kind+"-Grundkörper erstellt.")}
+function addPartRaw(type){const n=parts.filter(p=>p.type===type).length+1;let side="center",offset=0;if(["Arm","Bein","Flügel","Ohr","Horn"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:parts.find(x=>x.type==="Torso")?.id||null,joint:"Joint",rot:[0,0,0]};parts.push(p)}
+
 $("reset").onclick=()=>{pushHistory();location.reload()};
 $("save").onclick=()=>{const data={version:5,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
 $("load").onclick=()=>$("fileInput").click();
