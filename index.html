@@ -45,6 +45,9 @@ let parts=[
 ];
 let selected=2;
 let history=[],future=[],restoring=false;
+const socketMap={Kopf:["neck"],Torso:["head","shoulderL","shoulderR","hipL","hipR"],Arm:["shoulder","elbow","wrist"],Bein:["hip","knee","ankle"],Hand:["wrist"],Fuß:["ankle"],Hals:["head","torso"],Pfote:["wrist","ankle"],Klaue:["wrist","ankle"],Flügel:["shoulder"],Ohr:["head"],Horn:["head"],Auge:["head"],Schnauze:["head"],Maul:["head"],Zahn:["mouth"],Schwanz:["hip"],Tentakel:["root"],Antenne:["head"],Stachel:["root"],Kiemen:["head"],Fell:["root"],Schuppe:["root"],Segment:["root"]};
+const jointTypes=["Ball","Hinge","Fixed","Twist"];
+function attachmentOptions(p){return socketMap[p.type]||["root"]}
 const defaults={color:"#aeb9c5",rough:.65,metal:.05};
 function state(){return JSON.stringify({name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts})}
 function pushHistory(){if(restoring)return;history.push(state());if(history.length>50)history.shift();future=[]}
@@ -197,7 +200,7 @@ function addPart(type){ pushHistory();
  let side="center",offset=0;
  if(["Arm","Bein","Flügel"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}
  if(["Auge","Tentakel"].includes(type))offset=(n-1)*.45;
- const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:2,joint:"Joint",rot:[0,0,0]};
+ const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:2,joint:"Joint",rot:[0,0,0],socket:"root",jointType:"Ball",jointRot:[0,0,0]};
  parts.push(p);if($("sym").checked&&["Arm","Bein","Flügel"].includes(type)){const side2=side==="left"?"right":"left";parts.push({...p,id:nextId++,name:type+" "+(side2==="left"?"L":"R"),side:side2,offset:-offset});}selected=p.id;render();status(type+" hinzugefügt und sichtbar gemacht.");
 }
 function removePart(id){pushHistory();parts=parts.filter(p=>p.id!==id);if(selected===id)selected=parts.at(-1)?.id||null;render();status("Körperteil entfernt.")}
@@ -256,7 +259,7 @@ const presets={
   Custom:{height:100,width:100,parts:["Kopf","Torso"]}
 };
 function applyPreset(kind){const p=presets[kind]||presets.Custom;pushHistory();$("height").value=p.height;$("width").value=p.width;parts=[];nextId=1;selected=null;p.parts.forEach(t=>{addPartRaw(t)});selected=parts.find(x=>x.type==="Torso")?.id||parts[0]?.id||null;render();status(kind+"-Grundkörper erstellt.")}
-function addPartRaw(type){const n=parts.filter(p=>p.type===type).length+1;let side="center",offset=0;if(["Arm","Bein","Flügel","Ohr","Horn"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:parts.find(x=>x.type==="Torso")?.id||null,joint:"Joint",rot:[0,0,0]};parts.push(p)}
+function addPartRaw(type){const n=parts.filter(p=>p.type===type).length+1;let side="center",offset=0;if(["Arm","Bein","Flügel","Ohr","Horn"].includes(type)){side=n%2?"left":"right";offset=side==="left"?-1:1}const p={id:nextId++,type,name:type+" "+n,size:100,length:100,thickness:100,side,offset,parentId:parts.find(x=>x.type==="Torso")?.id||null,joint:"Joint",rot:[0,0,0],socket:"root",jointType:"Ball",jointRot:[0,0,0]};parts.push(p)}
 
 $("reset").onclick=()=>{pushHistory();location.reload()};
 $("save").onclick=()=>{const data={version:5,name:$("name").value,type:$("type").value,body:{height:+$("height").value,width:+$("width").value,proportions:+$("prop").value,symmetry:$("sym").checked},appearance:{color:$("color").value,rough:+$("rough").value/100,metal:+$("metal").value/100},parts};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=($("name").value||"character").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();URL.revokeObjectURL(a.href);status("Charakterdefinition als JSON gespeichert.")};
